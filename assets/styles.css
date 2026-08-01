@@ -298,6 +298,23 @@ body{
 /* 倒计时设置 */
 .cd-set{ display:flex; flex-direction:column; gap:12px; max-width:420px; }
 
+/* 倒计时列表（多项目） */
+.cd-item{ display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:14px;
+  background:var(--glass-soft); border:1px solid var(--border); margin-bottom:10px; }
+.cd-item:last-child{ margin-bottom:0; }
+.cd-ring{ flex:0 0 auto; transform:scale(.78); }
+.cd-info{ flex:1; min-width:0; }
+.cd-name{ font-weight:600; font-size:14.5px; }
+.cd-ops{ display:flex; gap:6px; }
+.cd-ops .icon-btn.sm{ width:30px; height:30px; font-size:14px; }
+
+/* 激励卡 */
+.motivate-box{ display:flex; align-items:flex-start; gap:8px; margin-top:12px; padding:11px 13px;
+  border-radius:14px; background:linear-gradient(120deg, rgba(168,197,190,.35), rgba(216,196,178,.30));
+  border:1px solid var(--border); }
+.motivate-ic{ font-size:18px; line-height:1.3; flex:0 0 auto; }
+.motivate-txt{ flex:1; font-size:13px; line-height:1.55; color:var(--text-soft); font-style:italic; }
+
 /* ============ 弹窗 ============ */
 .modal-scrim{ position:fixed; inset:0; background:rgba(70,65,60,.25); z-index:50; display:none;
   align-items:center; justify-content:center; backdrop-filter:blur(3px); }
