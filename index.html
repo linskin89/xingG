@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>考公工作台 · 星轨</title>
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+  <!-- 背景柔光斑 -->
+  <div class="bg-blobs">
+    <span class="blob b1"></span>
+    <span class="blob b2"></span>
+    <span class="blob b3"></span>
+    <span class="blob b4"></span>
+  </div>
+
+  <!-- 顶部栏 -->
+  <header class="topbar glass">
+    <button class="icon-btn menu-toggle" id="menuToggle" title="菜单">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="topbar-title">
+      <h1 id="sectionTitle">今日总览</h1>
+      <p id="sectionSub" class="muted">星轨 · 考公备考工作台</p>
+    </div>
+    <div class="topbar-right">
+      <div class="mini-countdown glass-soft" id="miniCountdown" title="倒计时">
+        <span class="mc-label">距考试</span>
+        <span class="mc-value" id="miniCdValue">--</span>
+        <span class="mc-unit">天</span>
+      </div>
+      <div class="mini-pet glass-soft" id="miniPet" title="养成宠物">
+        <span class="mp-stage" id="miniPetStage">星尘</span>
+        <span class="mp-meteor" id="miniPetMeteor">✦ 0</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- 侧边栏（隐藏式） -->
+  <aside class="sidebar glass" id="sidebar">
+    <div class="sidebar-head">
+      <div class="brand">
+        <span class="brand-mark">✦</span>
+        <span class="brand-name">星轨</span>
+      </div>
+      <button class="icon-btn close-side" id="closeSide">✕</button>
+    </div>
+
+    <nav class="nav" id="nav">
+      <button class="nav-item active" data-route="overview"><i>◎</i>今日总览</button>
+      <button class="nav-item" data-route="plans"><i>✎</i>学习计划</button>
+      <button class="nav-item" data-route="resources"><i>❖</i>资料库</button>
+      <button class="nav-item" data-route="xingce"><i>✦</i>行测试题</button>
+      <button class="nav-item" data-route="shenlun"><i>✺</i>申论试题</button>
+      <button class="nav-item" data-route="wrong"><i>📕</i>错题集</button>
+      <button class="nav-item" data-route="import"><i>⤓</i>导入资料</button>
+    </nav>
+
+    <!-- 养成 / 任务奖励系统 -->
+    <div class="pet-card glass-soft" id="petCard">
+      <div class="pet-stage-wrap">
+        <div class="pet-svg" id="petSvg"></div>
+        <div class="pet-speech" id="petSpeech"></div>
+      </div>
+      <div class="pet-info">
+        <div class="pet-name-row">
+          <span class="pet-name" id="petName">未命名</span>
+          <button class="mini-edit" id="renamePet" title="改名">✎</button>
+        </div>
+        <div class="pet-stage-name" id="petStageName">星尘</div>
+        <div class="pet-xp">
+          <div class="xp-bar"><span id="xpFill"></span></div>
+          <div class="xp-text" id="xpText">✦ 0 / 100</div>
+        </div>
+      </div>
+      <button class="task-btn" id="openTasks">📋 今日任务</button>
+      <div class="pet-talk" id="petTalk">和我说句话</div>
+    </div>
+
+    <button class="reset-btn" id="factoryReset" title="清空所有学习计划、题库、资料库与养成进度，恢复到初始状态">↺ 重置工作台</button>
+  </aside>
+  <div class="sidebar-scrim" id="sidebarScrim"></div>
+
+  <!-- 主内容 -->
+  <main class="content" id="content"></main>
+
+  <!-- 每日任务弹窗 -->
+  <div class="modal-scrim" id="taskModal">
+    <div class="modal glass">
+      <div class="modal-head">
+        <h2>📋 今日任务</h2>
+        <button class="icon-btn" id="closeTaskModal">✕</button>
+      </div>
+      <p class="muted small">每日 06:00 刷新 · 完成任务收集流星，喂养你的星星</p>
+      <div class="task-list" id="taskList"></div>
+      <div class="task-reward-note">
+        今日已收集 <b id="todayMeteor">0</b> ✦ 流星
+      </div>
+    </div>
+  </div>
+
+  <!-- 通用弹窗 -->
+  <div class="modal-scrim" id="genericModal">
+    <div class="modal glass" id="genericModalBox">
+      <div class="modal-head">
+        <h2 id="genericTitle">提示</h2>
+        <button class="icon-btn" id="closeGeneric">✕</button>
+      </div>
+      <div id="genericBody"></div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast-wrap" id="toastWrap"></div>
+
+  <!-- 通知气泡（宠物对话） -->
+  <div class="pet-float" id="petFloat">
+    <div class="pet-float-svg" id="petFloatSvg"></div>
+    <div class="pet-float-bubble" id="petFloatBubble"></div>
+  </div>
+
+  <script src="assets/store.js"></script>
+  <script src="assets/pet.js"></script>
+  <script src="assets/app.js"></script>
+</body>
+</html>
