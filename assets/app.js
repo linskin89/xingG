@@ -14,6 +14,7 @@
     route: 'overview',
     quiz: null,
     timer: { running: false, secs: 0, iv: null },
+    motiveIv: null,
   };
 
   /* ============ 初始化 ============ */
@@ -148,7 +149,7 @@
     overview: ['今日总览', '星轨 · 考公备考工作台'],
     plans: ['学习计划', '自定义计划，自动生成今日待办'],
     resources: ['资料库', '联网检索 + 自主导入，分类标签管理'],
-    xingce: ['行测试题', '近 5 年福建省考行测真题练习'],
+    xingce: ['行测试题', ''],
     shenlun: ['申论试题', '申论归纳 / 对策 / 公文写作练习'],
     wrong: ['错题集', '重练答错的题目，答对一次即消除'],
     import: ['导入资料', '导入题库与各类学习资料']
@@ -160,6 +161,7 @@
     const meta = ROUTE_META[r] || ['', ''];
     $('#sectionTitle').textContent = meta[0];
     $('#sectionSub').textContent = meta[1];
+    $('#sectionSub').style.display = meta[1] ? '' : 'none';
     closeSide();
     const c = $('#content');
     if (r === 'overview') renderOverview(c);
@@ -225,8 +227,10 @@
     const avgMaster = bankMasteryAvg();
     const wrong = st.wrong.length;
     const res = st.resources.length;
-    const cd = st.countdown;
-    const cdDays = cd.target ? S.dayDiff(S.todayStr(), cd.target) : null;
+    const cds = st.countdowns || [];
+    const nearest = cds
+      .filter(d => d.target && S.dayDiff(S.todayStr(), d.target) >= 0)
+      .sort((a, b) => S.dayDiff(S.todayStr(), a.target) - S.dayDiff(S.todayStr(), b.target))[0];
     const info = P.stageInfo(st.pet.meteor);
 
     c.innerHTML = `
@@ -248,13 +252,13 @@
       <div class="grid grid-2" style="margin-bottom:16px">
         <div class="card glass">
           <h3>⏳ 备考倒计时</h3>
-          <div class="ring-wrap">
-            <div class="ring">${ringSVG(cd.prep || 0, cdDays == null ? '—' : (cdDays >= 0 ? cdDays : '已过'))}</div>
-            <div>
-              <div style="font-weight:600;font-size:15px">${esc(cd.name || '未设置')}</div>
-              <div class="muted small">备考进度 ${cd.prep || 0}% · ${cd.target ? '目标日 ' + esc(cd.target) : '请设置目标日'}</div>
-              <button class="btn sm primary" id="setCd" style="margin-top:8px">设置倒计时</button>
-            </div>
+          <div id="cdList">
+            ${cds.length ? cds.map(cdRow).join('') : '<div class="empty small">还没有考试项目，点击下方「新增考试」添加一个吧</div>'}
+          </div>
+          <button class="btn sm primary" id="addCd" style="margin-top:10px">＋ 新增考试</button>
+          <div class="motivate-box" id="motivateBox">
+            <span class="motivate-ic">💡</span>
+            <span class="motivate-txt" id="motivateTxt"></span>
           </div>
         </div>
 
@@ -308,12 +312,32 @@
     `;
 
     // 绑定
-    $('#setCd').onclick = openCountdownModal;
+    $('#addCd').onclick = () => openCountdownModal(null);
+    $$('#cdList .cd-edit').forEach(b => b.onclick = () => openCountdownModal(b.dataset.id));
+    $$('#cdList .cd-del').forEach(b => b.onclick = () => delCountdown(b.dataset.id));
     $('#ovTask').onclick = () => { $('#taskModal').classList.add('show'); renderTaskModal(); };
     $$('#ovTodos .check').forEach(ch => ch.onclick = () => toggleTodo(ch.dataset.id));
     $$('[data-go]').forEach(b => b.onclick = () => setRoute(b.dataset.go));
     bindTimer();
     updateTimerUI();
+    startMotivation();
+  }
+
+  function cdRow(d) {
+    const days = d.target ? S.dayDiff(S.todayStr(), d.target) : null;
+    const ringD = days == null ? '—' : (days >= 0 ? days : '已过');
+    const tag = days == null ? '未设日期' : (days < 0 ? '已结束' : (days === 0 ? '就是今天' : '剩 ' + days + ' 天'));
+    return `<div class="cd-item">
+      <div class="cd-ring">${ringSVG(d.prep || 0, ringD)}</div>
+      <div class="cd-info">
+        <div class="cd-name">${esc(d.name || '未命名')}</div>
+        <div class="muted small">${d.target ? '目标 ' + esc(d.target) + ' · ' : ''}进度 ${d.prep || 0}% · ${tag}</div>
+      </div>
+      <div class="cd-ops">
+        <button class="icon-btn sm cd-edit" data-id="${d.id}" title="编辑">✎</button>
+        <button class="icon-btn sm cd-del" data-id="${d.id}" title="删除">🗑</button>
+      </div>
+    </div>`;
   }
 
   function todoRow(t) {
@@ -388,33 +412,97 @@
   }
   function fmtSec(s) { s = Math.max(0, Math.floor(s)); const m = Math.floor(s / 60), ss = s % 60; return String(m).padStart(2, '0') + ':' + String(ss).padStart(2, '0'); }
 
-  /* 倒计时设置 */
-  function openCountdownModal() {
+  /* 倒计时设置（支持多项目：新增 / 编辑） */
+  function openCountdownModal(editId) {
     const st = S.getState();
-    openGeneric('⏳ 设置备考倒计时', `
-      <div class="field"><label>项目名称</label><input class="input" id="cdName" value="${esc(st.countdown.name || '福建省考')}"></div>
-      <div class="field"><label>目标日期</label><input class="input" type="date" id="cdTarget" value="${esc(st.countdown.target || '')}"></div>
-      <div class="field"><label>备考百分比进度（0-100）</label><input class="input" type="number" min="0" max="100" id="cdPrep" value="${st.countdown.prep || 0}"></div>
+    const editing = editId ? (st.countdowns || []).find(d => d.id === editId) : null;
+    openGeneric(editing ? '✎ 编辑考试项目' : '⏳ 新增考试项目', `
+      <div class="field"><label>考试项目名称</label><input class="input" id="cdName" placeholder="如：福建省考 / 国考 / 事业单位" value="${editing ? esc(editing.name) : ''}"></div>
+      <div class="field"><label>目标日期</label><input class="input" type="date" id="cdTarget" value="${editing ? esc(editing.target || '') : ''}"></div>
+      <div class="field"><label>备考百分比进度（0-100）</label><input class="input" type="number" min="0" max="100" id="cdPrep" value="${editing ? (editing.prep || 0) : 0}"></div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button class="btn ghost" id="cdCancel">取消</button>
-        <button class="btn primary" id="cdSave">保存</button>
+        <button class="btn primary" id="cdSave">${editing ? '保存' : '添加'}</button>
       </div>`, (b) => {
       b.querySelector('#cdCancel').onclick = () => $('#genericModal').classList.remove('show');
       b.querySelector('#cdSave').onclick = () => {
-        const name = b.querySelector('#cdName').value.trim() || '福建省考';
+        const name = b.querySelector('#cdName').value.trim();
+        if (!name) return toast('请填写考试项目名称', 'warn');
         const target = b.querySelector('#cdTarget').value;
         const prep = Math.max(0, Math.min(100, +b.querySelector('#cdPrep').value || 0));
-        S.getState().countdown = { name, target, prep }; S.save();
+        const cds = S.getState().countdowns || (S.getState().countdowns = []);
+        if (editing) {
+          Object.assign(editing, { name, target, prep });
+        } else {
+          cds.push({ id: 'cd' + Date.now().toString(36), name, target, prep });
+        }
+        S.save();
         $('#genericModal').classList.remove('show');
-        toast('倒计时已更新', 'ok'); setRoute('overview'); updateMiniCountdown();
+        toast(editing ? '已保存' : '已新增考试项目', 'ok');
+        setRoute('overview'); updateMiniCountdown();
       };
     });
   }
+  function delCountdown(id) {
+    if (!confirm('确定删除该考试项目？')) return;
+    const st = S.getState();
+    st.countdowns = (st.countdowns || []).filter(d => d.id !== id);
+    S.save(); toast('已删除', 'ok'); setRoute('overview'); updateMiniCountdown();
+  }
   function updateMiniCountdown() {
-    const cd = S.getState().countdown;
-    if (!cd.target) { $('#miniCdValue').textContent = '--'; return; }
-    const d = S.dayDiff(S.todayStr(), cd.target);
-    $('#miniCdValue').textContent = d >= 0 ? d : '已过';
+    const cds = S.getState().countdowns || [];
+    const up = cds
+      .filter(d => d.target && S.dayDiff(S.todayStr(), d.target) >= 0)
+      .sort((a, b) => S.dayDiff(S.todayStr(), a.target) - S.dayDiff(S.todayStr(), b.target))[0];
+    $('#miniCdValue').textContent = up ? S.dayDiff(S.todayStr(), up.target) : '--';
+  }
+
+  /* ============================================================
+     激励语（内置题库 + 模板生成，自动轮播变换）
+     ============================================================ */
+  const MOTIVES = [
+    '今天的翻书声，是明天考场上的底气。',
+    '你流过的每一滴汗，都会变成录取通知书上的墨。',
+    '与其担心考不上，不如多背一道题。',
+    '慢一点没关系，只要一直在往前走。',
+    '上岸不是运气，是每天多坚持的那一点点。',
+    '把“我考不上”换成“我正在靠近”。',
+    '你现在的努力，是给未来的自己撑伞。',
+    '行测练的是速度，申论练的是格局，你都在变强。',
+    '错题不是打击，是考试在提前告诉你该补哪。',
+    '今天多学一小时，考场上就少慌一秒。',
+    '别人在刷手机，你在刷题库，差距就是这样来的。',
+    '星光不问赶路人，时光不负有心人。',
+    '别被进度吓到，拆成每天的小目标就够了。',
+    '坚持的意义，是让运气追得上你的实力。',
+    '把大目标切成小块，今天搞定这一块就好。',
+    '你不需要比所有人强，只要比昨天的自己强。',
+    '资料分析算不对？那是还没练够，再来一组。',
+    '申论不会写？先逼自己写满三行，思路就来了。',
+    '倒计时在走，但你的努力也在走，而且更快。',
+    '每一个早起的清晨，都在为录取名单上的名字投票。'
+  ];
+  function genMotive() {
+    const st = S.getState();
+    const up = (st.countdowns || [])
+      .filter(d => d.target && S.dayDiff(S.todayStr(), d.target) >= 0)
+      .sort((a, b) => S.dayDiff(S.todayStr(), a.target) - S.dayDiff(S.todayStr(), b.target))[0];
+    const days = up ? S.dayDiff(S.todayStr(), up.target) : null;
+    const tmpl = [
+      () => `距离「${up ? up.name : '考试'}」还有 ${days} 天，稳住节奏，一天天啃下来。`,
+      () => `「${up ? up.name : '考试'}」倒计时 ${days} 天，今天的小目标完成了吗？`,
+      () => days != null ? `还有 ${days} 天就要上场了，把焦虑换成刷题的动力。` : '把今天过好，就是离上岸更近一步。'
+    ];
+    if (up && Math.random() < 0.45) return tmpl[Math.floor(Math.random() * tmpl.length)]();
+    return MOTIVES[Math.floor(Math.random() * MOTIVES.length)];
+  }
+  function startMotivation() {
+    const box = $('#motivateTxt');
+    if (!box) return;
+    const tick = () => { box.textContent = genMotive(); };
+    tick();
+    clearInterval(App.motiveIv);
+    App.motiveIv = setInterval(tick, 6000); // 每 6 秒变换一次
   }
 
   /* ============================================================
