@@ -188,6 +188,21 @@
     $('#genericModal').classList.add('show');
     if (onMount) onMount($('#genericBody'));
   }
+  /* 应用内确认框（避免 window.confirm 在移动端 webview 被禁用） */
+  function confirmModal(message, onYes) {
+    openGeneric('请确认', `
+      <div style="padding:6px 2px;font-size:14px;color:var(--text)">${esc(message)}</div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
+        <button class="btn ghost" id="cfNo">取消</button>
+        <button class="btn rose" id="cfYes">删除</button>
+      </div>`, (b) => {
+      b.querySelector('#cfNo').onclick = () => $('#genericModal').classList.remove('show');
+      b.querySelector('#cfYes').onclick = () => {
+        $('#genericModal').classList.remove('show');
+        if (onYes) onYes();
+      };
+    });
+  }
 
   /* ============ 今日待办生成 ============ */
   function generateTodos() {
@@ -444,10 +459,11 @@
     });
   }
   function delCountdown(id) {
-    if (!confirm('确定删除该考试项目？')) return;
-    const st = S.getState();
-    st.countdowns = (st.countdowns || []).filter(d => d.id !== id);
-    S.save(); toast('已删除', 'ok'); setRoute('overview'); updateMiniCountdown();
+    confirmModal('确定删除该考试项目？', () => {
+      const st = S.getState();
+      st.countdowns = (st.countdowns || []).filter(d => d.id !== id);
+      S.save(); toast('已删除', 'ok'); setRoute('overview'); updateMiniCountdown();
+    });
   }
   function updateMiniCountdown() {
     const cds = S.getState().countdowns || [];
