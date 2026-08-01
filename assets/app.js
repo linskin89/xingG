@@ -1015,7 +1015,7 @@ B. 选项二
   function renamePet() {
     const cur = S.getState().pet.name;
     openGeneric('🐾 给星星起名', `
-      <div class="field"><label>宠物名字</label><input class="input" id="petNewName" value="${esc(cur)}" maxlength="12"></div>
+      <div class="field"><input class="input" id="petNewName" value="${esc(cur)}" maxlength="12"></div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button class="btn ghost" id="pnCancel">取消</button>
         <button class="btn primary" id="pnSave">保存</button>
