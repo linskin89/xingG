@@ -41,7 +41,7 @@
       banks: [],                   // 题库（按标签）
       wrong: [],                   // 错题集（存 question 副本 + 来源）
       resources: [],               // 资料库元数据
-      countdown: { name: '福建省考', target: null, prep: 0 }, // 倒计时
+      countdowns: [{ id: 'cd1', name: '福建省考', target: null, prep: 0 }], // 备考倒计时（多项目）
       remind: { enabled: true, advanceMin: 10 }               // 提醒设置
     };
   }
@@ -54,10 +54,21 @@
       const raw = localStorage.getItem(LS_KEY);
       if (!raw) return defaultState();
       const s = JSON.parse(raw);
-      return Object.assign(defaultState(), s);
+      const merged = Object.assign(defaultState(), s);
+      return migrate(merged);
     } catch (e) {
       return defaultState();
     }
+  }
+
+  function migrate(s) {
+    // 旧版单对象倒计时 -> 多项目数组
+    if (s.countdown && !Array.isArray(s.countdowns)) {
+      s.countdowns = [Object.assign({ id: 'cd1', name: '福建省考', target: null, prep: 0 }, s.countdown)];
+      delete s.countdown;
+    }
+    if (!Array.isArray(s.countdowns)) s.countdowns = [];
+    return s;
   }
 
   function save() {
@@ -382,6 +393,7 @@
     get todos() { return state.todos; },
     get banks() { return state.banks; },
     get wrong() { return state.wrong; },
-    get resources() { return state.resources; }
+    get resources() { return state.resources; },
+    get countdowns() { return state.countdowns; }
   };
 })(window);
