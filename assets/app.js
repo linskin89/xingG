@@ -289,7 +289,6 @@
             <div style="display:flex;gap:8px">
               <button class="btn green" id="timerToggle">开始专注</button>
               <button class="btn" id="timerEnd">结束专注</button>
-              <button class="btn ghost" id="timerReset">重置</button>
             </div>
             <div class="muted small">今日已专注 ${fmtSec(st.daily.studySeconds)} · 累计满 45 分钟完成每日任务</div>
           </div>
@@ -447,16 +446,12 @@
       const total = S.getState().daily.studySeconds || 0;
       toast('已结束专注，今日累计专注 ' + fmtSec(total), 'ok');
     };
-    $('#timerReset').onclick = () => {
-      clearInterval(App.timer.iv); App.timer.running = false; App.timer.secs = 0;
-      $('#timerToggle').textContent = '开始专注'; updateTimerUI();
-    };
   }
   function updateTimerUI() {
     const st = S.getState();
-    const total = (App.timer.secs || 0) + (st.daily.studySeconds || 0);
-    $('#timerNum') && ($('#timerNum').textContent = fmtSec(total));
-    const done = Math.min(1, total / 2700);
+    // 大号计时只显示「本次专注」时长，结束后归零（已记录的今日时长仍保留在下方与进度条）
+    $('#timerNum') && ($('#timerNum').textContent = fmtSec(App.timer.secs || 0));
+    const done = Math.min(1, (st.daily.studySeconds || 0) / 2700);
     $('#timerBar') && ($('#timerBar').style.width = (done * 100) + '%');
   }
   function fmtSec(s) { s = Math.max(0, Math.floor(s)); const m = Math.floor(s / 60), ss = s % 60; return String(m).padStart(2, '0') + ':' + String(ss).padStart(2, '0'); }
