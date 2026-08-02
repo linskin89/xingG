@@ -89,6 +89,8 @@
         if (!b) return;
         if (b.bank === '资料分析600题') b.bank = '资料分析';
         if (b.tag === '资料分析600题') b.tag = '资料分析';
+        if (b.bank === '速算技巧' || b.bank === '花生速算') b.bank = '速算';
+        if (b.tag === '速算技巧' || b.tag === '花生速算') b.tag = '速算';
       });
     }
     if (Array.isArray(s.wrong)) {
@@ -97,13 +99,17 @@
         if (!w) return;
         if (w.bank === '资料分析600题') w.bank = '资料分析';
         if (w.tag === '资料分析600题') w.tag = '资料分析';
+        if (w.bank === '速算技巧' || w.bank === '花生速算') w.bank = '速算';
+        if (w.tag === '速算技巧' || w.tag === '花生速算') w.tag = '速算';
       });
     }
     // 刷题统计 key 同步归并（行测|资料分析600题 -> 行测|资料分析），避免分析页残留旧标签
     if (s.quizStats && typeof s.quizStats === 'object') {
       const ns = {};
       Object.keys(s.quizStats).forEach(k => {
-        const target = k === '行测|资料分析600题' ? '行测|资料分析' : k;
+        let target = k;
+        if (k === '行测|资料分析600题') target = '行测|资料分析';
+        else if (k === '行测|速算技巧' || k === '行测|花生速算') target = '行测|速算';
         const st = s.quizStats[k];
         if (ns[target]) {
           ns[target].count += st.count; ns[target].totalTime += st.totalTime;
@@ -365,21 +371,21 @@
         options: ['①②③④', '①②④③', '②①③④', '②①④③'], answer: 3,
         explain: '增量：东盟≈97.9、美国≈21.7为正；欧盟≈-58.7、日本≈-15.5为负。排序：东盟>美国>日本>欧盟，即②①④③。' }
     ];
-    /* ---- 速算技巧练习：取自该理论 PDF 第一章「实用速算技巧」例题（小分互换/拆分/尾数法/整数基准值法） ---- */
+    /* ---- 速算练习：取自该理论 PDF 第一章「实用速算技巧」例题（小分互换/拆分/尾数法/整数基准值法） ---- */
     const susu = [
-      { type: 'choice', category: '行测', tag: '速算技巧', q: '784×25% = ?', options: ['196', '186', '206', '176'], answer: 0, explain: '25%=1/4，784÷4=196。' },
-      { type: 'choice', category: '行测', tag: '速算技巧', q: '632×12.5% = ?', options: ['79', '69', '89', '59'], answer: 0, explain: '12.5%=1/8，632÷8=79。' },
-      { type: 'choice', category: '行测', tag: '速算技巧', q: '20%×455 = ?', options: ['91', '81', '101', '71'], answer: 0, explain: '20%=1/5，455÷5=91。' },
-      { type: 'choice', category: '行测', tag: '速算技巧', q: '50%×472 = ?', options: ['236', '226', '246', '216'], answer: 0, explain: '50%=1/2，472÷2=236。' },
-      { type: 'choice', category: '行测', tag: '速算技巧', q: '981×33.3% ≈ ?', options: ['327', '317', '337', '307'], answer: 0, explain: '33.3%≈1/3，981÷3=327。' },
-      { type: 'choice', category: '行测', tag: '速算技巧', q: '727×16.7% ≈ ?', options: ['121', '111', '131', '101'], answer: 0, explain: '16.7%≈1/6，727÷6≈121.2。' },
-      { type: 'choice', category: '行测', tag: '速算技巧', q: '382×55% = ?', options: ['210.1', '200.1', '220.1', '190.1'], answer: 0, explain: '55%=0.55，382×0.55=210.1。' },
-      { type: 'choice', category: '行测', tag: '速算技巧', q: '936×45% = ?', options: ['421.2', '411.2', '431.2', '401.2'], answer: 0, explain: '45%=0.45，936×0.45=421.2。' },
-      { type: 'choice', category: '行测', tag: '速算技巧', q: '1228×95% = ?', options: ['1166.6', '1156.6', '1176.6', '1146.6'], answer: 0, explain: '95%=0.95，1228×0.95=1166.6。' },
-      { type: 'choice', category: '行测', tag: '速算技巧', q: '592×97% = ?', options: ['574.24', '564.24', '584.24', '554.24'], answer: 0, explain: '97%=0.97，592×0.97=574.24。' },
-      { type: 'choice', category: '行测', tag: '速算技巧', q: '632 - 589 = ?（整数基准值法）', options: ['43', '33', '53', '63'], answer: 0, explain: '632-589=(632-600)+(600-589)=32+11=43。' },
-      { type: 'choice', category: '行测', tag: '速算技巧', q: '512 - 481 = ?（整数基准值法）', options: ['31', '41', '21', '51'], answer: 0, explain: '512-481=(512-500)+(500-481)=12+19=31。' },
-      { type: 'choice', category: '行测', tag: '速算技巧', q: '822 - 484 = ?（整数基准值法）', options: ['338', '328', '348', '318'], answer: 0, explain: '822-484=(822-500)+(500-484)=322+16=338。' }
+      { type: 'choice', category: '行测', tag: '速算', q: '784×25% = ?', options: ['196', '186', '206', '176'], answer: 0, explain: '25%=1/4，784÷4=196。' },
+      { type: 'choice', category: '行测', tag: '速算', q: '632×12.5% = ?', options: ['79', '69', '89', '59'], answer: 0, explain: '12.5%=1/8，632÷8=79。' },
+      { type: 'choice', category: '行测', tag: '速算', q: '20%×455 = ?', options: ['91', '81', '101', '71'], answer: 0, explain: '20%=1/5，455÷5=91。' },
+      { type: 'choice', category: '行测', tag: '速算', q: '50%×472 = ?', options: ['236', '226', '246', '216'], answer: 0, explain: '50%=1/2，472÷2=236。' },
+      { type: 'choice', category: '行测', tag: '速算', q: '981×33.3% ≈ ?', options: ['327', '317', '337', '307'], answer: 0, explain: '33.3%≈1/3，981÷3=327。' },
+      { type: 'choice', category: '行测', tag: '速算', q: '727×16.7% ≈ ?', options: ['121', '111', '131', '101'], answer: 0, explain: '16.7%≈1/6，727÷6≈121.2。' },
+      { type: 'choice', category: '行测', tag: '速算', q: '382×55% = ?', options: ['210.1', '200.1', '220.1', '190.1'], answer: 0, explain: '55%=0.55，382×0.55=210.1。' },
+      { type: 'choice', category: '行测', tag: '速算', q: '936×45% = ?', options: ['421.2', '411.2', '431.2', '401.2'], answer: 0, explain: '45%=0.45，936×0.45=421.2。' },
+      { type: 'choice', category: '行测', tag: '速算', q: '1228×95% = ?', options: ['1166.6', '1156.6', '1176.6', '1146.6'], answer: 0, explain: '95%=0.95，1228×0.95=1166.6。' },
+      { type: 'choice', category: '行测', tag: '速算', q: '592×97% = ?', options: ['574.24', '564.24', '584.24', '554.24'], answer: 0, explain: '97%=0.97，592×0.97=574.24。' },
+      { type: 'choice', category: '行测', tag: '速算', q: '632 - 589 = ?（整数基准值法）', options: ['43', '33', '53', '63'], answer: 0, explain: '632-589=(632-600)+(600-589)=32+11=43。' },
+      { type: 'choice', category: '行测', tag: '速算', q: '512 - 481 = ?（整数基准值法）', options: ['31', '41', '21', '51'], answer: 0, explain: '512-481=(512-500)+(500-481)=12+19=31。' },
+      { type: 'choice', category: '行测', tag: '速算', q: '822 - 484 = ?（整数基准值法）', options: ['338', '328', '348', '318'], answer: 0, explain: '822-484=(822-500)+(500-484)=322+16=338。' }
     ];
     /* 资料分析600题全量题目见 assets/data/zl600.js（window.ZL600_BANK，由 JSON 自动生成） */
 
