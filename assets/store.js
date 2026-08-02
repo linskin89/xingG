@@ -400,6 +400,8 @@
     mkPdf(susu, 'pdf_ss');
     const zl600 = (typeof window !== 'undefined' && window.ZL600_BANK) ? window.ZL600_BANK : [];
     mkPdf(zl600, 'z600');
+    const hsss = (typeof window !== 'undefined' && window.HSSS_BANK) ? window.HSSS_BANK : [];
+    mkPdf(hsss, 'hsss');
     return banks;
   }
 
