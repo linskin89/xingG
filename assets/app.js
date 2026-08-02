@@ -421,20 +421,6 @@
     }).join('') + `</div>`;
   }
 
-  /* 柱状图（垂直，每月学习总时长）：months = [{label, value}]，value 单位秒 */
-  function monthBars(months) {
-    if (!months.length) return '<div class="empty small">暂无月度记录</div>';
-    const max = Math.max(1, ...months.map(m => m.value));
-    return `<div class="vbars">` + months.map(m => {
-      const h = Math.round(m.value / max * 100);
-      const hh = m.value / 3600;
-      const disp = hh >= 1 ? hh.toFixed(1) + ' 小时' : Math.round(m.value / 60) + ' 分钟';
-      return `<div class="vbar-col" title="${esc(m.label)}：${disp}">
-        <div class="vbar-wrap"><div class="vbar" style="height:${h}%;background:${m.value > 0 ? 'var(--m-green-d)' : 'var(--border-soft)'}"></div></div>
-        <div class="vbar-x">${esc(m.label)}</div>
-      </div>`;
-    }).join('') + `</div>`;
-  }
 
   /* 专注计时 */
   function bindTimer() {
@@ -976,12 +962,8 @@
       const val = rec ? (rec.studySeconds || 0) : 0;
       last14.push({ label: ds.slice(5), value: val, empty: val <= 0 });
     }
-    // 每月学习总时长（后台记录），取最近 12 个月
+    // 每月学习总时长（后台记录）：聚合全部月份累计
     const monthly = S.getMonthly();
-    const monthList = Object.keys(monthly).sort().slice(-12).map(ym => {
-      const v = monthly[ym] || 0;
-      return { label: ym.slice(2), value: v }; // 显示 YY-MM
-    });
     const thisMonth = monthly[S.todayStr().slice(0, 7)] || 0;
     const totalMonthStudy = Object.values(monthly).reduce((a, v) => a + v, 0);
     const todayStudy = st.daily.studySeconds || 0;
@@ -1036,10 +1018,10 @@
         <div class="muted small" style="margin-top:6px">共 14 根柱子，浅色空柱为未学习的日子（空白状态）。累计学习 ${fmtSec(totalStudy)} · 今日已学 ${fmtSec(todayStudy)}（含专注计时与刷题用时）</div>
       </div>
 
-      <div class="card glass" style="margin-bottom:16px">
-        <h3>📆 每月学习总时长（后台记录）</h3>
-        ${monthBars(monthList)}
-        <div class="muted small" style="margin-top:6px">本月已累计 ${fmtSec(thisMonth)} · 全部月份累计 ${fmtSec(totalMonthStudy)}（每月学习时长自动归档，跨设备仅本地保存）</div>
+      <div class="card glass" style="margin-bottom:16px;padding:16px 18px">
+        <h3>⏳ 学习总时长</h3>
+        <div style="font-size:28px;font-weight:700;color:var(--m-green-d);margin:8px 0 4px">${fmtSec(totalMonthStudy)}</div>
+        <div class="muted small">本月已累计 ${fmtSec(thisMonth)}（学习时长自动按月归档，数据仅保存在本机）</div>
       </div>
 
       <div class="grid grid-2">
