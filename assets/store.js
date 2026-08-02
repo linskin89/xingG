@@ -35,7 +35,9 @@
     return {
       pet: { name: '小星', stageIndex: 0, meteor: 0 },
       lastActiveDate: null,        // 上次使用日期（用于 >2 天未使用提醒）
-      daily: { date: null, done: {}, claimed: {}, studySeconds: 0, quizCount: 0 },
+      daily: { date: null, done: {}, claimed: {}, studySeconds: 0, quizCount: 0, quizCorrect: 0 },
+      history: [],                 // 每日快照：{ date, studySeconds, quizCount, quizCorrect }
+      quizStats: {},               // 各标签刷题统计：key=类别|标签 -> {count,totalTime,correct,wrong}
       plans: [],                   // 学习计划
       todos: [],                   // 生成的今日待办
       banks: [],                   // 题库（按标签）
@@ -381,6 +383,50 @@
     });
   }
 
+  /* ---------- 学习时长 / 刷题统计（分析用） ---------- */
+  // 将当日 daily 同步进 history（保证今天有记录）
+  function syncTodayHistory() {
+    const today = todayStr();
+    let e = state.history.find(x => x.date === today);
+    const d = state.daily;
+    const rec = {
+      date: today,
+      studySeconds: d.studySeconds || 0,
+      quizCount: d.quizCount || 0,
+      quizCorrect: d.quizCorrect || 0
+    };
+    if (e) Object.assign(e, rec); else state.history.push(rec);
+  }
+  // 跨日重置前，把旧的一天快照写入 history（并截断到最近 60 天）
+  function snapshotHistory() {
+    const d = state.daily;
+    if (!d.date) return;
+    const rec = {
+      date: d.date,
+      studySeconds: d.studySeconds || 0,
+      quizCount: d.quizCount || 0,
+      quizCorrect: d.quizCorrect || 0
+    };
+    const e = state.history.find(x => x.date === d.date);
+    if (e) Object.assign(e, rec); else state.history.push(rec);
+    if (state.history.length > 60) state.history = state.history.slice(-60);
+  }
+  // 每答一题：累计刷题数 / 正确数 / 学习时长 / 各标签用时与正确率
+  function recordQuizAnswer(category, tag, seconds, correct) {
+    const d = state.daily;
+    d.quizCount = (d.quizCount || 0) + 1;
+    if (correct) d.quizCorrect = (d.quizCorrect || 0) + 1;
+    d.studySeconds = (d.studySeconds || 0) + Math.round(seconds);
+    const key = category + '|' + (tag || category);
+    const qs = state.quizStats[key] || (state.quizStats[key] = { count: 0, totalTime: 0, correct: 0, wrong: 0 });
+    qs.count++; qs.totalTime += seconds;
+    if (correct) qs.correct++; else qs.wrong++;
+    syncTodayHistory();
+    save();
+  }
+  function getHistory() { return state.history.slice(); }
+  function getQuizStats() { return state.quizStats; }
+
   /* ---------- 公开 API ---------- */
   global.Store = {
     LS_KEY, PET_STAGES, DAILY_TASKS,
@@ -388,12 +434,16 @@
     todayStr, dayDiff,
     putFile, getFile, delFile,
     ensureSeed, reset,
+    snapshotHistory, syncTodayHistory, recordQuizAnswer,
+    getHistory, getQuizStats,
     // 便捷访问
     get plans() { return state.plans; },
     get todos() { return state.todos; },
     get banks() { return state.banks; },
     get wrong() { return state.wrong; },
     get resources() { return state.resources; },
-    get countdowns() { return state.countdowns; }
+    get countdowns() { return state.countdowns; },
+    get history() { return state.history; },
+    get quizStats() { return state.quizStats; }
   };
 })(window);
