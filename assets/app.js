@@ -764,14 +764,17 @@
         <div class="opt big" data-short="会">✅ 会</div>
         <div class="opt big" data-short="不会">❌ 不会</div>`;
     }
+    const noAnswer = (q.type === 'choice' && (q.answer === null || q.answer === undefined));
     c.innerHTML = `
       <div class="quiz-card glass">
-        <div class="quiz-progress">第 ${num} / ${total} 题 · ${esc(q.bank || q.category)} · 本次正确 ${App.quiz.sessionCorrect}</div>
+        <div class="quiz-progress">第 ${num} / ${total} 题 · ${esc(q.bank || q.category)} · 本次正确 ${App.quiz.sessionCorrect}${noAnswer ? ' · <span class="tag-pill">题本篇未附答案</span>' : ''}</div>
         <div class="quiz-timer">⏱ 本题用时 <b id="qTimer">00:00</b></div>
+        ${q.material ? `<div class="quiz-material">${esc(q.material)}</div>` : ''}
+        ${q.image ? `<img src="${esc(q.image)}" class="quiz-image" alt="题目配图">` : ''}
         <div class="quiz-q">${num}. ${esc(q.q)}</div>
         <div class="quiz-opts" id="quizOpts">${optsHtml}</div>
         <div class="explain" id="explain">
-          <b>解析：</b>${esc(q.explain || '（暂无解析）')}
+          <b>解析：</b>${noAnswer ? '本题来自题本篇，答案与解析未录入，请自行核对解析篇。' : esc(q.explain || '（暂无解析）')}
         </div>
         <div class="quiz-foot">
           <button class="btn ghost sm" id="qQuit">退出</button>
@@ -792,12 +795,18 @@
       let correct;
       if (q.type === 'choice') {
         const oi = +o.dataset.oi;
-        correct = (oi === q.answer);
-        opts.forEach(x => {
-          const xo = +x.dataset.oi;
-          if (xo === q.answer) x.classList.add('correct');
-          if (x === o && !correct) x.classList.add('wrong');
-        });
+        if (q.answer === null || q.answer === undefined) {
+          // 题本篇未附答案：只标记选中，不判对错
+          correct = null;
+          o.classList.add('sel');
+        } else {
+          correct = (oi === q.answer);
+          opts.forEach(x => {
+            const xo = +x.dataset.oi;
+            if (xo === q.answer) x.classList.add('correct');
+            if (x === o && !correct) x.classList.add('wrong');
+          });
+        }
       } else {
         const pick = o.dataset.short;
         correct = (pick === (q.answer || '会'));
@@ -823,11 +832,11 @@
     const tag = q.bank || q.category;
     // 记录刷题统计（各标签用时 / 正确率 / 学习时长）
     S.recordQuizAnswer(q.category, tag, elapsed, correct);
-    App.quiz.sessionCorrect += correct ? 1 : 0;
+    if (correct === true) App.quiz.sessionCorrect++;
     if (S.getState().daily.quizCount >= 20) markDone('quiz20');
     if (S.getState().daily.studySeconds >= 2700) markDone('study45');
-    // 掌握度
-    if (correct) {
+    // 掌握度与错题集（仅针对有标准答案的题目）
+    if (correct === true) {
       const src = st.banks.find(b => b.id === q.id);
       if (src && !src.mastered) { src.mastered = 1; }
       // 错题集消除
@@ -835,7 +844,7 @@
         st.wrong = st.wrong.filter(w => !(w.q === q.q && w.category === q.category));
         toast('错题已巩固，从错题集消除 ✦', 'ok');
       }
-    } else {
+    } else if (correct === false) {
       // 加入错题集（去重）
       const exist = st.wrong.find(w => w.q === q.q && w.category === q.category);
       if (!exist) st.wrong.push(Object.assign({}, q));
@@ -848,7 +857,9 @@
   function finishQuiz(c) {
     const qz = App.quiz;
     if (qz.timerIv) clearInterval(qz.timerIv);
-    const acc = qz.total ? Math.round(qz.sessionCorrect / qz.total * 100) : 0;
+    const judgedTotal = qz.queue.filter(q => !(q.type === 'choice' && (q.answer === null || q.answer === undefined))).length;
+    const nullCount = qz.total - judgedTotal;
+    const acc = judgedTotal ? Math.round(qz.sessionCorrect / judgedTotal * 100) : 0;
     const totalSec = qz.timings.reduce((a, t) => a + t.sec, 0);
     const avgSec = qz.timings.length ? totalSec / qz.timings.length : 0;
     // 各标签每题平均用时
@@ -869,12 +880,12 @@
         <div class="stat" style="align-items:center;margin:14px 0">
           <div class="num green">${acc}%</div><div class="lbl">正确率（${qz.sessionCorrect}/${qz.total}）</div>
         </div>
-        <div class="muted small" style="margin-bottom:10px">总用时 ${fmtSec(totalSec)} · 平均每题 ${avgSec.toFixed(1)} 秒</div>
+        <div class="muted small" style="margin-bottom:10px">总用时 ${fmtSec(totalSec)} · 平均每题 ${avgSec.toFixed(1)} 秒${nullCount ? ' · 其中 ' + nullCount + ' 道为题本篇未附答案（练习未判分）' : ''}</div>
         <div class="card glass" style="text-align:left;margin:6px 0 4px">
           <div class="ttl">📊 各标签每题平均用时</div>
           ${tagRows}
         </div>
-        <p class="muted small">错题已进入「错题集」，记得回头重练。坚持每日刷题收集流星 🌟</p>
+        <p class="muted small">${nullCount ? '题本篇未附答案的题目不进入错题集，请自行对照解析篇核对。' : '错题已进入「错题集」，记得回头重练。'}坚持每日刷题收集流星 🌟</p>
         <div class="toolbar" style="justify-content:center;margin-top:14px">
           <button class="btn primary" id="again">再来一组</button>
           <button class="btn" id="back">返回题库</button>
