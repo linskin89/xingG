@@ -1015,7 +1015,6 @@
       <div class="card glass" style="margin-bottom:16px">
         <h3>📅 每日学习时长（近 14 天）</h3>
         ${vBars(last14)}
-        <div class="muted small" style="margin-top:6px">共 14 根柱子，浅色空柱为未学习的日子（空白状态）。累计学习 ${fmtSec(totalStudy)} · 今日已学 ${fmtSec(todayStudy)}（含专注计时与刷题用时）</div>
       </div>
 
       <div class="card glass" style="margin-bottom:16px;padding:16px 18px">
