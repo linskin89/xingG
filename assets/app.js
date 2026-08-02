@@ -962,7 +962,7 @@
       const val = rec ? (rec.studySeconds || 0) : 0;
       last14.push({ label: ds.slice(5), value: val, empty: val <= 0 });
     }
-    // 每月学习总时长（后台记录）：聚合全部月份累计
+    // 学习总时长（后台按月归档）：聚合全部月份累计
     const monthly = S.getMonthly();
     const thisMonth = monthly[S.todayStr().slice(0, 7)] || 0;
     const totalMonthStudy = Object.values(monthly).reduce((a, v) => a + v, 0);
