@@ -411,11 +411,27 @@
     if (!days.length) return '<div class="empty small">暂无学习记录</div>';
     const max = Math.max(1, ...days.map(d => d.value));
     return `<div class="vbars">` + days.map(d => {
-      const h = Math.round(d.value / max * 100);
+      const isEmpty = (d.value || 0) <= 0;
+      const h = isEmpty ? 6 : Math.round(d.value / max * 100);
       const mm = Math.round((d.value || 0) / 60);
-      return `<div class="vbar-col" title="${esc(d.label)}：${mm} 分钟">
-        <div class="vbar-wrap"><div class="vbar" style="height:${h}%;background:${d.value > 0 ? 'var(--m-green-d)' : 'var(--border-soft)'}"></div></div>
+      return `<div class="vbar-col" title="${esc(d.label)}：${isEmpty ? '未学习（空状态）' : mm + ' 分钟'}">
+        <div class="vbar-wrap"><div class="vbar${isEmpty ? ' empty' : ''}" style="height:${h}%;${isEmpty ? '' : 'background:var(--m-green-d)'}"></div></div>
         <div class="vbar-x">${esc(d.label)}</div>
+      </div>`;
+    }).join('') + `</div>`;
+  }
+
+  /* 柱状图（垂直，每月学习总时长）：months = [{label, value}]，value 单位秒 */
+  function monthBars(months) {
+    if (!months.length) return '<div class="empty small">暂无月度记录</div>';
+    const max = Math.max(1, ...months.map(m => m.value));
+    return `<div class="vbars">` + months.map(m => {
+      const h = Math.round(m.value / max * 100);
+      const hh = m.value / 3600;
+      const disp = hh >= 1 ? hh.toFixed(1) + ' 小时' : Math.round(m.value / 60) + ' 分钟';
+      return `<div class="vbar-col" title="${esc(m.label)}：${disp}">
+        <div class="vbar-wrap"><div class="vbar" style="height:${h}%;background:${m.value > 0 ? 'var(--m-green-d)' : 'var(--border-soft)'}"></div></div>
+        <div class="vbar-x">${esc(m.label)}</div>
       </div>`;
     }).join('') + `</div>`;
   }
@@ -429,7 +445,7 @@
         App.timer.iv = setInterval(() => {
           App.timer.secs++;
           const st = S.getState();
-          st.daily.studySeconds = (st.daily.studySeconds || 0) + 1;
+          S.addStudy(1);
           if (st.daily.studySeconds >= 2700) markDone('study45');
           S.syncTodayHistory(); S.save(); updateTimerUI();
         }, 1000);
@@ -948,7 +964,26 @@
   function renderAnalytics(c) {
     const st = S.getState();
     const hist = S.getHistory().slice().sort((a, b) => a.date < b.date ? -1 : 1);
-    const last14 = hist.slice(-14).map(h => ({ label: h.date.slice(5), value: h.studySeconds || 0 }));
+    // 近 14 天：固定 14 根柱子，无记录的日子记为 0（空状态）
+    const last14 = [];
+    const hByDate = {};
+    hist.forEach(h => { hByDate[h.date] = h; });
+    for (let i = 13; i >= 0; i--) {
+      const dt = new Date();
+      dt.setDate(dt.getDate() - i);
+      const ds = S.todayStr(dt);
+      const rec = hByDate[ds];
+      const val = rec ? (rec.studySeconds || 0) : 0;
+      last14.push({ label: ds.slice(5), value: val, empty: val <= 0 });
+    }
+    // 每月学习总时长（后台记录），取最近 12 个月
+    const monthly = S.getMonthly();
+    const monthList = Object.keys(monthly).sort().slice(-12).map(ym => {
+      const v = monthly[ym] || 0;
+      return { label: ym.slice(2), value: v }; // 显示 YY-MM
+    });
+    const thisMonth = monthly[S.todayStr().slice(0, 7)] || 0;
+    const totalMonthStudy = Object.values(monthly).reduce((a, v) => a + v, 0);
     const todayStudy = st.daily.studySeconds || 0;
     const totalStudy = hist.reduce((a, h) => a + (h.studySeconds || 0), 0);
     const studyDays = hist.filter(h => (h.studySeconds || 0) > 0).length;
@@ -998,7 +1033,13 @@
       <div class="card glass" style="margin-bottom:16px">
         <h3>📅 每日学习时长（近 14 天）</h3>
         ${vBars(last14)}
-        <div class="muted small" style="margin-top:6px">累计学习 ${fmtSec(totalStudy)} · 今日已学 ${fmtSec(todayStudy)}（含专注计时与刷题用时）</div>
+        <div class="muted small" style="margin-top:6px">共 14 根柱子，浅色空柱为未学习的日子（空白状态）。累计学习 ${fmtSec(totalStudy)} · 今日已学 ${fmtSec(todayStudy)}（含专注计时与刷题用时）</div>
+      </div>
+
+      <div class="card glass" style="margin-bottom:16px">
+        <h3>📆 每月学习总时长（后台记录）</h3>
+        ${monthBars(monthList)}
+        <div class="muted small" style="margin-top:6px">本月已累计 ${fmtSec(thisMonth)} · 全部月份累计 ${fmtSec(totalMonthStudy)}（每月学习时长自动归档，跨设备仅本地保存）</div>
       </div>
 
       <div class="grid grid-2">
