@@ -36,7 +36,8 @@
     const st = S.getState();
     const today = S.todayStr();
     if (st.daily.date !== today) {
-      st.daily = { date: today, done: {}, claimed: {}, studySeconds: 0, quizCount: 0 };
+      S.snapshotHistory();   // 把旧的一天写入历史
+      st.daily = { date: today, done: {}, claimed: {}, studySeconds: 0, quizCount: 0, quizCorrect: 0 };
       // 登录任务：条件当日即满足，但仍需手动领取奖励
       st.daily.done.login = true;
       st.lastActiveDate = today;
@@ -44,6 +45,7 @@
     }
     // 久未使用检测（>2 天）
     st.lastActiveDate = st.lastActiveDate || today;
+    S.syncTodayHistory();
     S.save();
     generateTodos();
   }
@@ -152,6 +154,7 @@
     xingce: ['行测试题', ''],
     shenlun: ['申论试题', '申论归纳 / 对策 / 公文写作练习'],
     wrong: ['错题集', '重练答错的题目，答对一次即消除'],
+    analytics: ['分析', '每日学习时长与刷题数据可视化'],
     import: ['导入资料', '导入题库与各类学习资料']
   };
 
@@ -170,6 +173,7 @@
     else if (r === 'xingce') renderQuizLanding(c, '行测');
     else if (r === 'shenlun') renderQuizLanding(c, '申论');
     else if (r === 'wrong') renderWrong(c);
+    else if (r === 'analytics') renderAnalytics(c);
     else if (r === 'import') renderImport(c);
     c.scrollTop = 0;
   }
@@ -388,6 +392,34 @@
     return Math.round(sum / st.banks.length * 100);
   }
 
+  /* 条形图（水平）：rows = [{label, value, display, color}] */
+  function hBars(rows) {
+    if (!rows.length) return '<div class="empty small">暂无数据，去刷题后这里会显示</div>';
+    const max = Math.max(1, ...rows.map(r => r.value));
+    return `<div class="hbar-list">` + rows.map(r => {
+      const pct = Math.max(2, Math.round(r.value / max * 100));
+      return `<div class="hbar-row">
+        <div class="hbar-label" title="${esc(r.label)}">${esc(r.label)}</div>
+        <div class="hbar-track"><div class="hbar-fill" style="width:${pct}%;background:${r.color || 'var(--m-blue-d)'}"></div></div>
+        <div class="hbar-val">${esc(r.display)}</div>
+      </div>`;
+    }).join('') + `</div>`;
+  }
+
+  /* 柱状图（垂直，每日学习时长）：days = [{label, value}]，value 单位秒 */
+  function vBars(days) {
+    if (!days.length) return '<div class="empty small">暂无学习记录</div>';
+    const max = Math.max(1, ...days.map(d => d.value));
+    return `<div class="vbars">` + days.map(d => {
+      const h = Math.round(d.value / max * 100);
+      const mm = Math.round((d.value || 0) / 60);
+      return `<div class="vbar-col" title="${esc(d.label)}：${mm} 分钟">
+        <div class="vbar-wrap"><div class="vbar" style="height:${h}%;background:${d.value > 0 ? 'var(--m-green-d)' : 'var(--border-soft)'}"></div></div>
+        <div class="vbar-x">${esc(d.label)}</div>
+      </div>`;
+    }).join('') + `</div>`;
+  }
+
   /* 专注计时 */
   function bindTimer() {
     $('#timerToggle').onclick = () => {
@@ -399,7 +431,7 @@
           const st = S.getState();
           st.daily.studySeconds = (st.daily.studySeconds || 0) + 1;
           if (st.daily.studySeconds >= 2700) markDone('study45');
-          S.save(); updateTimerUI();
+          S.syncTodayHistory(); S.save(); updateTimerUI();
         }, 1000);
       } else {
         $('#timerToggle').textContent = '继续';
@@ -716,7 +748,7 @@
     if (!queue.length) return toast('该题库暂无题目', 'warn');
     // 乱序题目
     queue = shuffle(queue.slice());
-    App.quiz = { category: category || '错题', mode, queue, idx: 0, correct: 0, total: queue.length, sessionCorrect: 0 };
+    App.quiz = { category: category || '错题', mode, queue, idx: 0, correct: 0, total: queue.length, sessionCorrect: 0, timings: [] };
     renderQuizQuestion(c);
   }
 
@@ -738,6 +770,7 @@
     c.innerHTML = `
       <div class="quiz-card glass">
         <div class="quiz-progress">第 ${num} / ${total} 题 · ${esc(q.bank || q.category)} · 本次正确 ${App.quiz.sessionCorrect}</div>
+        <div class="quiz-timer">⏱ 本题用时 <b id="qTimer">00:00</b></div>
         <div class="quiz-q">${num}. ${esc(q.q)}</div>
         <div class="quiz-opts" id="quizOpts">${optsHtml}</div>
         <div class="explain" id="explain">
@@ -749,10 +782,16 @@
         </div>
       </div>
     `;
-    $('#qQuit').onclick = () => setRoute(isWrongMode() ? 'wrong' : (App.quiz.category === '行测' ? 'xingce' : 'shenlun'));
+    $('#qQuit').onclick = () => finishQuiz(c);
+    // 本题实时计时
+    if (App.quiz.timerIv) clearInterval(App.quiz.timerIv);
+    App.quiz.qStart = Date.now();
+    const tEl = $('#qTimer');
+    App.quiz.timerIv = setInterval(() => { if (tEl) tEl.textContent = fmtSec((Date.now() - App.quiz.qStart) / 1000); }, 500);
     const opts = $$('#quizOpts .opt');
     opts.forEach(o => o.onclick = () => {
       if ($('#qNext').dataset.locked) return;
+      if (App.quiz.timerIv) clearInterval(App.quiz.timerIv); // 冻结本题计时
       let correct;
       if (q.type === 'choice') {
         const oi = +o.dataset.oi;
@@ -783,10 +822,13 @@
 
   function onAnswer(correct, q) {
     const st = S.getState();
+    const elapsed = (Date.now() - App.quiz.qStart) / 1000;
+    const tag = q.bank || q.category;
+    // 记录刷题统计（各标签用时 / 正确率 / 学习时长）
+    S.recordQuizAnswer(q.category, tag, elapsed, correct);
     App.quiz.sessionCorrect += correct ? 1 : 0;
-    // 每日刷题计数
-    st.daily.quizCount = (st.daily.quizCount || 0) + 1;
-    if (st.daily.quizCount >= 20) markDone('quiz20');
+    if (S.getState().daily.quizCount >= 20) markDone('quiz20');
+    if (S.getState().daily.studySeconds >= 2700) markDone('study45');
     // 掌握度
     if (correct) {
       const src = st.banks.find(b => b.id === q.id);
@@ -801,18 +843,39 @@
       const exist = st.wrong.find(w => w.q === q.q && w.category === q.category);
       if (!exist) st.wrong.push(Object.assign({}, q));
     }
+    // 记录本题用时（用于退出时汇总各标签平均用时）
+    App.quiz.timings.push({ tag, category: q.category, sec: elapsed });
     S.save();
   }
 
   function finishQuiz(c) {
     const qz = App.quiz;
+    if (qz.timerIv) clearInterval(qz.timerIv);
     const acc = qz.total ? Math.round(qz.sessionCorrect / qz.total * 100) : 0;
+    const totalSec = qz.timings.reduce((a, t) => a + t.sec, 0);
+    const avgSec = qz.timings.length ? totalSec / qz.timings.length : 0;
+    // 各标签每题平均用时
+    const byTag = {};
+    qz.timings.forEach(t => {
+      (byTag[t.tag] = byTag[t.tag] || { n: 0, sum: 0 });
+      byTag[t.tag].n++; byTag[t.tag].sum += t.sec;
+    });
+    const tagRows = Object.keys(byTag).map(tag => {
+      const avg = byTag[tag].sum / byTag[tag].n;
+      return `<div class="tag-time-row"><span>🏷️ ${esc(tag)}</span><span>${byTag[tag].n} 题 · 平均 <b>${avg.toFixed(1)}</b> 秒</span></div>`;
+    }).join('') || '<div class="muted small">本次没有完成题目</div>';
+
     c.innerHTML = `
       <div class="quiz-card glass" style="text-align:center">
         <div class="big" style="font-size:44px">🎉</div>
         <h3>本次练习完成</h3>
         <div class="stat" style="align-items:center;margin:14px 0">
           <div class="num green">${acc}%</div><div class="lbl">正确率（${qz.sessionCorrect}/${qz.total}）</div>
+        </div>
+        <div class="muted small" style="margin-bottom:10px">总用时 ${fmtSec(totalSec)} · 平均每题 ${avgSec.toFixed(1)} 秒</div>
+        <div class="card glass" style="text-align:left;margin:6px 0 4px">
+          <div class="ttl">📊 各标签每题平均用时</div>
+          ${tagRows}
         </div>
         <p class="muted small">错题已进入「错题集」，记得回头重练。坚持每日刷题收集流星 🌟</p>
         <div class="toolbar" style="justify-content:center;margin-top:14px">
@@ -877,6 +940,85 @@
       $('#wrongAll').onclick = () => startQuiz(c, null, 'wrong-all');
       $$('[data-cat]').forEach(b => b.onclick = () => startQuiz(c, b.dataset.cat, 'wrong'));
     }
+  }
+
+  /* ============================================================
+     分析（学习时长 / 刷题数据可视化）
+     ============================================================ */
+  function renderAnalytics(c) {
+    const st = S.getState();
+    const hist = S.getHistory().slice().sort((a, b) => a.date < b.date ? -1 : 1);
+    const last14 = hist.slice(-14).map(h => ({ label: h.date.slice(5), value: h.studySeconds || 0 }));
+    const todayStudy = st.daily.studySeconds || 0;
+    const totalStudy = hist.reduce((a, h) => a + (h.studySeconds || 0), 0);
+    const studyDays = hist.filter(h => (h.studySeconds || 0) > 0).length;
+    const totalQuiz = hist.reduce((a, h) => a + (h.quizCount || 0), 0);
+    const totalCorrect = hist.reduce((a, h) => a + (h.quizCorrect || 0), 0);
+    const overallAcc = totalQuiz ? Math.round(totalCorrect / totalQuiz * 100) : 0;
+
+    // 各标签：刷题用时 / 正确率 / 掌握度
+    const stats = S.getQuizStats();
+    const bankTags = {};
+    st.banks.forEach(b => {
+      const k = b.category + '|' + b.bank;
+      (bankTags[k] = bankTags[k] || { total: 0, m: 0 });
+      bankTags[k].total++; if (b.mastered) bankTags[k].m++;
+    });
+    const keys = new Set([...Object.keys(stats), ...Object.keys(bankTags)]);
+    const tagData = [];
+    keys.forEach(k => {
+      const idx = k.indexOf('|');
+      const cat = k.slice(0, idx), tag = k.slice(idx + 1);
+      const s = stats[k] || { count: 0, totalTime: 0, correct: 0, wrong: 0 };
+      const bt = bankTags[k] || { total: 0, m: 0 };
+      tagData.push({
+        cat, tag,
+        avgTime: s.count ? s.totalTime / s.count : 0,
+        acc: (s.correct + s.wrong) ? s.correct / (s.correct + s.wrong) * 100 : 0,
+        mastery: bt.total ? bt.m / bt.total * 100 : 0,
+        hasQuiz: !!s.count
+      });
+    });
+    const lbl = d => `${d.cat}·${d.tag}`;
+    const timeRows = tagData.slice().sort((a, b) => b.avgTime - a.avgTime)
+      .map(d => ({ label: lbl(d), value: d.avgTime, display: d.avgTime.toFixed(1) + ' 秒', color: 'var(--m-blue-d)' }));
+    const accRows = tagData.filter(d => d.hasQuiz).slice().sort((a, b) => b.acc - a.acc)
+      .map(d => ({ label: lbl(d), value: d.acc, display: d.acc.toFixed(0) + '%', color: 'var(--m-green-d)' }));
+    const masteryRows = tagData.slice().sort((a, b) => b.mastery - a.mastery)
+      .map(d => ({ label: lbl(d), value: d.mastery, display: d.mastery.toFixed(0) + '%', color: 'var(--m-purple-d)' }));
+
+    c.innerHTML = `
+      <div class="grid grid-4" style="margin-bottom:16px">
+        <div class="card glass stat"><div class="num blue">${fmtSec(todayStudy)}</div><div class="lbl">今日学习时长</div></div>
+        <div class="card glass stat"><div class="num green">${studyDays}<span style="font-size:16px;color:var(--text-soft)"> 天</span></div><div class="lbl">累计学习天数</div></div>
+        <div class="card glass stat"><div class="num sand">${totalQuiz}</div><div class="lbl">累计刷题</div></div>
+        <div class="card glass stat"><div class="num rose">${overallAcc}%</div><div class="lbl">总正确率</div></div>
+      </div>
+
+      <div class="card glass" style="margin-bottom:16px">
+        <h3>📅 每日学习时长（近 14 天）</h3>
+        ${vBars(last14)}
+        <div class="muted small" style="margin-top:6px">累计学习 ${fmtSec(totalStudy)} · 今日已学 ${fmtSec(todayStudy)}（含专注计时与刷题用时）</div>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="card glass">
+          <h3>⏱ 各标签每题平均用时</h3>
+          ${hBars(timeRows)}
+        </div>
+        <div class="card glass">
+          <h3>✅ 各标签正确率</h3>
+          ${hBars(accRows)}
+        </div>
+      </div>
+
+      <div class="card glass" style="margin-bottom:16px;margin-top:16px">
+        <h3>📈 各标签掌握度</h3>
+        ${hBars(masteryRows)}
+      </div>
+
+      ${!totalQuiz ? `<div class="card glass"><div class="empty"><div class="big">📊</div>还没有刷题数据，去「行测试题 / 申论试题」练一组，这里就会生成分析图表。</div></div>` : ''}
+    `;
   }
 
   /* ============================================================
