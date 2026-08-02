@@ -301,6 +301,15 @@ body{
 .explain{ margin-top:16px; padding:14px; border-radius:12px; background:rgba(217,200,164,.18);
   border:1px solid var(--border-soft); font-size:13px; line-height:1.6; display:none; }
 .explain.show{ display:block; }
+/* 速算 / 填空题输入与反馈 */
+.calc-wrap{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.quiz-input{ flex:1; min-width:160px; padding:12px 14px; font-size:17px; border-radius:12px;
+  border:1px solid var(--border-soft); background:var(--glass-strong); color:var(--text);
+  font-variant-numeric:tabular-nums; outline:none; }
+.quiz-input:focus{ border-color:var(--m-blue-d); box-shadow:0 0 0 3px rgba(159,179,198,.25); }
+.quiz-feedback{ width:100%; min-height:20px; margin-top:8px; font-weight:600; font-size:14px; }
+.quiz-feedback.ok{ color:var(--m-green-d); }
+.quiz-feedback.bad{ color:var(--m-rose-d); }
 
 /* 进度条（题库掌握度） */
 .pbar{ height:10px; background:rgba(160,150,140,.2); border-radius:8px; overflow:hidden; }
