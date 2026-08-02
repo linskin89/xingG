@@ -38,6 +38,7 @@
       daily: { date: null, done: {}, claimed: {}, studySeconds: 0, quizCount: 0, quizCorrect: 0 },
       history: [],                 // 每日快照：{ date, studySeconds, quizCount, quizCorrect }
       quizStats: {},               // 各标签刷题统计：key=类别|标签 -> {count,totalTime,correct,wrong}
+      monthly: {},                 // 每月学习总时长：key=YYYY-MM -> 累计专注秒数（后台记录）
       plans: [],                   // 学习计划
       todos: [],                   // 生成的今日待办
       banks: [],                   // 题库（按标签）
@@ -70,6 +71,16 @@
       delete s.countdown;
     }
     if (!Array.isArray(s.countdowns)) s.countdowns = [];
+    // 月份学习总时长容器
+    if (!s.monthly || typeof s.monthly !== 'object') s.monthly = {};
+    // 旧用户：从 history 回填 monthly，保证月度分析立即可用
+    if (Object.keys(s.monthly).length === 0 && Array.isArray(s.history) && s.history.length) {
+      s.history.forEach(h => {
+        if (!h || !h.date) return;
+        const ym = h.date.slice(0, 7);
+        s.monthly[ym] = (s.monthly[ym] || 0) + (h.studySeconds || 0);
+      });
+    }
     return s;
   }
 
@@ -90,6 +101,11 @@
   function dayDiff(a, b) { // b - a 天数
     const da = new Date(a + 'T00:00:00'), db = new Date(b + 'T00:00:00');
     return Math.round((db - da) / 86400000);
+  }
+  function ymStr(d) {
+    d = d || new Date();
+    const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
   }
 
   /* =====================================================
@@ -384,6 +400,14 @@
   }
 
   /* ---------- 学习时长 / 刷题统计（分析用） ---------- */
+  // 累加学习秒数：同时计入当日 daily 与对应月份后台累计（monthly[YYYY-MM]）
+  function addStudy(sec) {
+    if (!sec) return;
+    const d = state.daily;
+    d.studySeconds = (d.studySeconds || 0) + sec;
+    const ym = ymStr();
+    state.monthly[ym] = (state.monthly[ym] || 0) + sec;
+  }
   // 将当日 daily 同步进 history（保证今天有记录）
   function syncTodayHistory() {
     const today = todayStr();
@@ -416,7 +440,7 @@
     const d = state.daily;
     d.quizCount = (d.quizCount || 0) + 1;
     if (correct) d.quizCorrect = (d.quizCorrect || 0) + 1;
-    d.studySeconds = (d.studySeconds || 0) + Math.round(seconds);
+    addStudy(Math.round(seconds));
     const key = category + '|' + (tag || category);
     const qs = state.quizStats[key] || (state.quizStats[key] = { count: 0, totalTime: 0, correct: 0, wrong: 0 });
     qs.count++; qs.totalTime += seconds;
@@ -426,6 +450,7 @@
   }
   function getHistory() { return state.history.slice(); }
   function getQuizStats() { return state.quizStats; }
+  function getMonthly() { return state.monthly; }
 
   /* ---------- 公开 API ---------- */
   global.Store = {
@@ -434,8 +459,8 @@
     todayStr, dayDiff,
     putFile, getFile, delFile,
     ensureSeed, reset,
-    snapshotHistory, syncTodayHistory, recordQuizAnswer,
-    getHistory, getQuizStats,
+    snapshotHistory, syncTodayHistory, recordQuizAnswer, addStudy,
+    getHistory, getQuizStats, getMonthly,
     // 便捷访问
     get plans() { return state.plans; },
     get todos() { return state.todos; },
@@ -444,6 +469,7 @@
     get resources() { return state.resources; },
     get countdowns() { return state.countdowns; },
     get history() { return state.history; },
-    get quizStats() { return state.quizStats; }
+    get quizStats() { return state.quizStats; },
+    get monthly() { return state.monthly; }
   };
 })(window);
