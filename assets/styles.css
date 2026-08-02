@@ -282,6 +282,8 @@ body{
 /* 题库练习 */
 .quiz-card{ padding:22px; max-width:720px; margin:0 auto; }
 .quiz-q{ font-size:17px; line-height:1.7; margin-bottom:18px; font-weight:600; }
+.quiz-material{ font-size:14.5px; line-height:1.75; margin-bottom:14px; padding:14px 16px; border-radius:12px; background:var(--glass-soft); border:1px solid var(--border-soft); white-space:pre-wrap; }
+.quiz-image{ display:block; max-width:100%; max-height:360px; margin:0 auto 14px; border-radius:10px; border:1px solid var(--border-soft); background:var(--glass-soft); object-fit:contain; }
 .quiz-opts{ display:flex; flex-direction:column; gap:10px; }
 .opt{
   padding:13px 15px; border-radius:14px; border:1px solid var(--border-soft); background:var(--glass-soft);
