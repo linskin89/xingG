@@ -408,6 +408,9 @@
     mkPdf(zl600, 'z600');
     const hsss = (typeof window !== 'undefined' && window.HSSS_BANK) ? window.HSSS_BANK : [];
     mkPdf(hsss, 'hsss');
+    /* 逻辑判断600题全量题目见 assets/data/lj600.js（window.LJ600_BANK，由 JSON 自动生成） */
+    const lj600 = (typeof window !== 'undefined' && window.LJ600_BANK) ? window.LJ600_BANK : [];
+    mkPdf(lj600, 'lj600');
     return banks;
   }
 
