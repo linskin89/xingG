@@ -81,6 +81,34 @@
         s.monthly[ym] = (s.monthly[ym] || 0) + (h.studySeconds || 0);
       });
     }
+    // 标签归并：把已保存题库里残存的「资料分析600题」统一并入「资料分析」
+    if (Array.isArray(s.banks)) {
+      s.banks.forEach(b => {
+        if (!b) return;
+        if (b.bank === '资料分析600题') b.bank = '资料分析';
+        if (b.tag === '资料分析600题') b.tag = '资料分析';
+      });
+    }
+    if (Array.isArray(s.wrong)) {
+      s.wrong.forEach(w => {
+        if (!w) return;
+        if (w.bank === '资料分析600题') w.bank = '资料分析';
+        if (w.tag === '资料分析600题') w.tag = '资料分析';
+      });
+    }
+    // 刷题统计 key 同步归并（行测|资料分析600题 -> 行测|资料分析），避免分析页残留旧标签
+    if (s.quizStats && typeof s.quizStats === 'object') {
+      const ns = {};
+      Object.keys(s.quizStats).forEach(k => {
+        const target = k === '行测|资料分析600题' ? '行测|资料分析' : k;
+        const st = s.quizStats[k];
+        if (ns[target]) {
+          ns[target].count += st.count; ns[target].totalTime += st.totalTime;
+          ns[target].correct += st.correct; ns[target].wrong += st.wrong;
+        } else { ns[target] = st; }
+      });
+      s.quizStats = ns;
+    }
     return s;
   }
 
