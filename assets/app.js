@@ -455,6 +455,21 @@
     $('#timerBar') && ($('#timerBar').style.width = (done * 100) + '%');
   }
   function fmtSec(s) { s = Math.max(0, Math.floor(s)); const m = Math.floor(s / 60), ss = s % 60; return String(m).padStart(2, '0') + ':' + String(ss).padStart(2, '0'); }
+  // 速算/填空题数值判分：整数要求精确；小数允许 1% 相对误差
+  function numClose(user, ans) {
+    if (ans === 0) return Math.abs(user) < 1e-6;
+    if (Number.isInteger(ans)) return Math.round(user) === ans;
+    return Math.abs(user - ans) / Math.abs(ans) <= 0.01;
+  }
+  function calcAnswerText(q) {
+    if (q.answers && q.answers.length) return q.answers.map(a => fmtCalc(a)).join('，');
+    return fmtCalc(q.answer);
+  }
+  function fmtCalc(x) {
+    if (x === null || x === undefined || isNaN(x)) return '—';
+    if (Number.isInteger(x)) return String(x);
+    return x.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
+  }
 
   /* 倒计时设置（支持多项目：新增 / 编辑） */
   function openCountdownModal(editId) {
@@ -713,7 +728,7 @@
           ${groups.map(g => `<button class="btn" data-start="tag:${esc(g.tag)}">${esc(g.tag)}（${g.total}）</button>`).join('')}
           ${wrongCount ? `<button class="btn rose" data-start="wrong">🔁 错题重练（${wrongCount}）</button>` : ''}
         </div>
-        <p class="hint">选择题每次选项随机乱序；简答题自动生成「会 / 不会」；错题将进入错题集，重练答对一次即消除。</p>
+        <p class="hint">选择题每次选项随机乱序；速算 / 填空题请输入数值后提交（整数精确、小数允许约 1% 误差）；简答题自动生成「会 / 不会」；错题将进入错题集，重练答对一次即消除。</p>
       </div>
 
       <div class="card glass">
@@ -759,6 +774,13 @@
         <div class="opt" data-oi="${oi}" data-k="${k}">
           <span class="tag">${'ABCD'[k]}</span><span>${esc(q.options[oi])}</span>
         </div>`).join('');
+    } else if (q.type === 'calc') {
+      optsHtml = `
+        <div class="calc-wrap">
+          <input class="quiz-input" id="quizInput" inputmode="decimal" autocomplete="off" placeholder="${q.answers ? '两值用逗号分隔，如 A,X' : '输入计算结果'}">
+          <button class="btn primary" id="qSubmit">提交</button>
+        </div>
+        <div class="quiz-feedback" id="qFeedback"></div>`;
     } else {
       optsHtml = `
         <div class="opt big" data-short="会">✅ 会</div>
@@ -820,6 +842,40 @@
       $('#qNext').dataset.locked = '1';
       $('#qNext').disabled = false;
     });
+    // 速算 / 填空题：输入数值并提交
+    if (q.type === 'calc') {
+      const submit = () => {
+        if ($('#qNext').dataset.locked) return;
+        if (App.quiz.timerIv) clearInterval(App.quiz.timerIv); // 冻结本题计时
+        const raw = ($('#quizInput').value || '').trim();
+        const fb = $('#qFeedback');
+        let correct;
+        if (q.answers && q.answers.length) {
+          const parts = raw.split(/[\s,，、]+/).map(s => parseFloat(s)).filter(n => !isNaN(n));
+          correct = parts.length === q.answers.length && q.answers.every((a, i) => numClose(parts[i], a));
+        } else {
+          const v = parseFloat(raw);
+          correct = !isNaN(v) && numClose(v, q.answer);
+        }
+        $('#quizInput').disabled = true;
+        $('#qSubmit').disabled = true;
+        if (correct) {
+          fb.className = 'quiz-feedback ok';
+          fb.textContent = '✅ 正确！';
+        } else {
+          fb.className = 'quiz-feedback bad';
+          fb.textContent = '❌ 正确答案：' + calcAnswerText(q);
+        }
+        onAnswer(correct, q);
+        $('#explain').classList.add('show');
+        $('#qNext').dataset.locked = '1';
+        $('#qNext').disabled = false;
+      };
+      $('#qSubmit').onclick = submit;
+      const inp = $('#quizInput');
+      inp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } };
+      setTimeout(() => inp.focus(), 50);
+    }
     $('#qNext').onclick = () => {
       if (App.quiz.idx + 1 >= App.quiz.total) return finishQuiz(c);
       App.quiz.idx++; renderQuizQuestion(c);
