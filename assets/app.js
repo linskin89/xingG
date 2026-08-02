@@ -760,7 +760,7 @@
     if (!queue.length) return toast('该题库暂无题目', 'warn');
     // 乱序题目
     queue = shuffle(queue.slice());
-    App.quiz = { category: category || '错题', mode, queue, idx: 0, correct: 0, total: queue.length, sessionCorrect: 0, timings: [] };
+    App.quiz = { category: category || '错题', mode, queue, idx: 0, correct: 0, total: queue.length, sessionCorrect: 0, sessionJudged: 0, timings: [] };
     renderQuizQuestion(c);
   }
 
@@ -889,6 +889,7 @@
     // 记录刷题统计（各标签用时 / 正确率 / 学习时长）
     S.recordQuizAnswer(q.category, tag, elapsed, correct);
     if (correct === true) App.quiz.sessionCorrect++;
+    if (correct === true || correct === false) App.quiz.sessionJudged++; // 仅累计已判分的题（排除题本篇未附答案）
     if (S.getState().daily.quizCount >= 20) markDone('quiz20');
     if (S.getState().daily.studySeconds >= 2700) markDone('study45');
     // 掌握度与错题集（仅针对有标准答案的题目）
@@ -913,9 +914,13 @@
   function finishQuiz(c) {
     const qz = App.quiz;
     if (qz.timerIv) clearInterval(qz.timerIv);
-    const judgedTotal = qz.queue.filter(q => !(q.type === 'choice' && (q.answer === null || q.answer === undefined))).length;
-    const nullCount = qz.total - judgedTotal;
-    const acc = judgedTotal ? Math.round(qz.sessionCorrect / judgedTotal * 100) : 0;
+    // 本次「实际作答」的题目（每答一题都记一条 timing）
+    const answered = qz.timings.length;
+    // 其中已判分的题数（排除题本篇未附答案的题）；正确率仅基于本次实际作答且有答案的题，与题库累计正确率无关
+    const judged = qz.sessionJudged || 0;
+    const skipped = qz.total - answered; // 提前退出未作答的题数
+    const nullCount = Math.max(0, answered - judged); // 本次作答但未附答案的题数
+    const acc = judged ? Math.round(qz.sessionCorrect / judged * 100) : 0;
     const totalSec = qz.timings.reduce((a, t) => a + t.sec, 0);
     const avgSec = qz.timings.length ? totalSec / qz.timings.length : 0;
     // 各标签每题平均用时
@@ -934,9 +939,9 @@
         <div class="big" style="font-size:44px">🎉</div>
         <h3>本次练习完成</h3>
         <div class="stat" style="align-items:center;margin:14px 0">
-          <div class="num green">${acc}%</div><div class="lbl">正确率（${qz.sessionCorrect}/${qz.total}）</div>
+          <div class="num green">${acc}%</div><div class="lbl">正确率（${qz.sessionCorrect}/${judged}）</div>
         </div>
-        <div class="muted small" style="margin-bottom:10px">总用时 ${fmtSec(totalSec)} · 平均每题 ${avgSec.toFixed(1)} 秒${nullCount ? ' · 其中 ' + nullCount + ' 道为题本篇未附答案（练习未判分）' : ''}</div>
+        <div class="muted small" style="margin-bottom:10px">本次作答 ${answered} 题 · 总用时 ${fmtSec(totalSec)} · 平均每题 ${avgSec.toFixed(1)} 秒${nullCount ? ' · 其中 ' + nullCount + ' 道为题本篇未附答案（练习未判分）' : ''}${skipped ? ' · ' + skipped + ' 道未作答（提前退出）' : ''}</div>
         <div class="card glass" style="text-align:left;margin:6px 0 4px">
           <div class="ttl">📊 各标签每题平均用时</div>
           ${tagRows}
