@@ -770,7 +770,7 @@
         <div class="quiz-progress">第 ${num} / ${total} 题 · ${esc(q.bank || q.category)} · 本次正确 ${App.quiz.sessionCorrect}${noAnswer ? ' · <span class="tag-pill">题本篇未附答案</span>' : ''}</div>
         <div class="quiz-timer">⏱ 本题用时 <b id="qTimer">00:00</b></div>
         ${q.material ? `<div class="quiz-material">${esc(q.material)}</div>` : ''}
-        ${q.image ? `<img src="${esc(q.image)}" class="quiz-image" alt="题目配图">` : ''}
+        ${q.image ? `<img src="${esc(q.image)}" class="quiz-image" alt="题目配图" onerror="this.style.display='none'">` : ''}
         <div class="quiz-q">${num}. ${esc(q.q)}</div>
         <div class="quiz-opts" id="quizOpts">${optsHtml}</div>
         <div class="explain" id="explain">
