@@ -414,6 +414,9 @@
     /* 数量关系600题全量题目见 assets/data/sl600.js（window.SL600_BANK，由 JSON 自动生成，含配图在 assets/images/） */
     const sl600 = (typeof window !== 'undefined' && window.SL600_BANK) ? window.SL600_BANK : [];
     mkPdf(sl600, 'sl600');
+    /* 片段阅读600题全量题目见 assets/data/pd600.js（window.PD600_BANK，由 JSON 自动生成；62 道未附答案作练习不判分） */
+    const pd600 = (typeof window !== 'undefined' && window.PD600_BANK) ? window.PD600_BANK : [];
+    mkPdf(pd600, 'pd600');
     return banks;
   }
 
