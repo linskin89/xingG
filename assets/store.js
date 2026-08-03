@@ -411,6 +411,9 @@
     /* 逻辑判断600题全量题目见 assets/data/lj600.js（window.LJ600_BANK，由 JSON 自动生成） */
     const lj600 = (typeof window !== 'undefined' && window.LJ600_BANK) ? window.LJ600_BANK : [];
     mkPdf(lj600, 'lj600');
+    /* 数量关系600题全量题目见 assets/data/sl600.js（window.SL600_BANK，由 JSON 自动生成，含配图在 assets/images/） */
+    const sl600 = (typeof window !== 'undefined' && window.SL600_BANK) ? window.SL600_BANK : [];
+    mkPdf(sl600, 'sl600');
     return banks;
   }
 
