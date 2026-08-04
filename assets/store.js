@@ -183,6 +183,21 @@
       tx.oncomplete = res; tx.onerror = () => rej(tx.error);
     });
   }
+  // 导出全部资料库文件（备份用）：返回 [{ id, blob }]
+  async function exportFiles() {
+    const db = await openDB();
+    const keys = await new Promise((res, rej) => {
+      const r = db.transaction(STORE, 'readonly').objectStore(STORE).getAllKeys();
+      r.onsuccess = () => res(r.result || []);
+      r.onerror = () => rej(r.error);
+    });
+    const out = [];
+    for (const id of keys) {
+      const blob = await getFile(id);
+      if (blob) out.push({ id, blob });
+    }
+    return out;
+  }
 
   /* =====================================================
      种子数据：近 5 年福建省考行测 / 申论 样题
@@ -514,7 +529,7 @@
     LS_KEY, PET_STAGES, DAILY_TASKS,
     getState, setState, save, load,
     todayStr, dayDiff,
-    putFile, getFile, delFile,
+    putFile, getFile, delFile, exportFiles,
     ensureSeed, reset,
     snapshotHistory, syncTodayHistory, recordQuizAnswer, addStudy,
     getHistory, getQuizStats, getMonthly,
