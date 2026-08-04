@@ -1406,7 +1406,7 @@ B. 选项二
         <button class="btn primary" id="bkExport">⬇ 导出备份</button>
         <button class="btn" id="bkImport">⬆ 导入备份</button>
       </div>
-      <input type="file" id="bkFile" accept=".json,application/json" style="display:none">
+      <input type="file" id="bkFile" accept=".json,.txt,application/json,text/plain" style="display:none">
       <p class="hint">导入将<b>覆盖当前所有数据</b>，建议先导出一份再导入。备份文件仅保存在你的设备，不会上传到任何服务器。</p>
     `, (b) => {
       const fileInput = b.querySelector('#bkFile');
@@ -1438,11 +1438,11 @@ B. 选项二
     } catch (e) {
       return toast('打包失败：' + (e && e.message || e), 'warn');
     }
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = '星轨备份_' + S.todayStr() + '.json';
+    a.download = '星轨备份_' + S.todayStr() + '.txt';
     document.body.appendChild(a);
     a.click();
     a.remove();
