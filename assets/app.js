@@ -1394,6 +1394,7 @@ B. 选项二
     const fileN = (st.resources || []).length;
     const fileSize = (st.resources || []).reduce((a, r) => a + (r.size || 0), 0);
     const sizeStr = fileSize ? (fileSize / 1048576).toFixed(1) + ' MB' : '无';
+    let backupPayload = null;
     openGeneric('💾 数据备份', `
       <p class="muted small">将全部学习进度（学习计划、题库、错题集、资料库、倒计时、养成宠物与统计）导出为本地文件，防止清除缓存或换设备导致数据丢失。</p>
       <div class="backup-stat glass-soft">
@@ -1403,14 +1404,34 @@ B. 选项二
         <div><b>✦ ${st.pet.meteor}</b><span>养成进度</span></div>
       </div>
       <div class="backup-actions">
-        <button class="btn primary" id="bkExport">⬇ 导出备份</button>
+        <button class="btn primary" id="bkExport" disabled>⏳ 准备备份中…</button>
         <button class="btn" id="bkImport">⬆ 导入备份</button>
       </div>
       <input type="file" id="bkFile" accept=".json,.txt,application/json,text/plain" style="display:none">
-      <p class="hint">导入将<b>覆盖当前所有数据</b>，建议先导出一份再导入。备份文件仅保存在你的设备，不会上传到任何服务器。</p>
+      <p class="hint" id="bkHint">正在打包 IndexedDB 资料文件，请稍候…</p>
     `, (b) => {
       const fileInput = b.querySelector('#bkFile');
-      b.querySelector('#bkExport').onclick = () => doExportBackup();
+      const exportBtn = b.querySelector('#bkExport');
+      const hint = b.querySelector('#bkHint');
+
+      // 提前打包，避免用户点击导出时因异步操作丢失手势，导致浏览器把 blob 当成页面打开
+      buildBackup()
+        .then((data) => {
+          backupPayload = data;
+          exportBtn.disabled = false;
+          exportBtn.textContent = '⬇ 导出备份';
+          hint.textContent = '导入将覆盖当前所有数据，建议先导出一份再导入。备份文件仅保存在你的设备，不会上传到任何服务器。';
+        })
+        .catch((e) => {
+          exportBtn.disabled = true;
+          exportBtn.textContent = '准备失败';
+          hint.textContent = '准备备份失败：' + (e && e.message || e || '未知错误');
+        });
+
+      exportBtn.onclick = () => {
+        if (!backupPayload) return toast('备份尚未准备好，请稍候', 'warn');
+        doExportBackup(backupPayload);
+      };
       b.querySelector('#bkImport').onclick = () => fileInput.click();
       fileInput.onchange = (e) => {
         const f = e.target.files && e.target.files[0];
@@ -1430,38 +1451,41 @@ B. 选项二
     });
   }
 
-  async function doExportBackup() {
-    toast('正在打包备份，请稍候…');
-    let data;
-    try {
-      data = await buildBackup();
-    } catch (e) {
-      return toast('打包失败：' + (e && e.message || e), 'warn');
-    }
-    let blob, url;
+  function doExportBackup(data) {
+    let blob;
     try {
       blob = new Blob([JSON.stringify(data, null, 2)], { type: 'text/plain;charset=utf-8' });
-      url = URL.createObjectURL(blob);
     } catch (e) {
       return toast('生成备份文件失败：' + (e && e.message || e), 'warn');
     }
+    const filename = 'xinggui_backup_' + S.todayStr() + '.txt';
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = '星轨备份_' + S.todayStr() + '.txt';
-    a.style.display = 'none';
+    a.download = filename;
+    // 不要 display:none，部分浏览器对隐藏锚点的 click 不触发下载；移到视口外即可
+    a.style.position = 'fixed';
+    a.style.left = '-9999px';
+    a.style.top = '0';
+    a.style.opacity = '0';
     document.body.appendChild(a);
     let ok = true;
     try {
-      if (navigator.msSaveOrOpenBlob) { navigator.msSaveOrOpenBlob(blob, a.download); }
-      else { a.click(); }
-    } catch (e) { ok = false; }
-    // 关键：延迟清理，避免大文件下载被提前取消（尤其 Safari / iOS 在 await 后需锚点仍挂在 DOM）
+      if (navigator.msSaveOrOpenBlob) {
+        navigator.msSaveOrOpenBlob(blob, filename);
+      } else {
+        a.click();
+      }
+    } catch (e) {
+      ok = false;
+    }
+    // 延迟清理，避免大文件下载被提前取消
     setTimeout(() => {
       try { a.remove(); } catch (e) {}
       try { URL.revokeObjectURL(url); } catch (e) {}
     }, 20000);
     $('#genericModal').classList.remove('show');
-    if (ok) toast('已导出备份文件，请到下载目录查收并妥善保存 💾', 'ok');
+    if (ok) toast('已导出备份文件「' + filename + '」，请到下载目录查收并妥善保存 💾', 'ok');
     else toast('浏览器拦截了下载，请允许本站点下载后重试', 'warn');
   }
 
