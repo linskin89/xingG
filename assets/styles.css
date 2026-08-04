@@ -87,6 +87,30 @@ body{
 .mp-stage{ font-weight:600; }
 .mp-meteor{ color:var(--m-sand-d); font-weight:600; }
 
+/* 顶部「备份」按钮 */
+.top-btn{
+  display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:14px;
+  border:1px solid var(--border-soft);background:var(--glass-soft);cursor:pointer;
+  color:var(--text);font-size:13px;font-weight:600;transition:.2s;white-space:nowrap;
+}
+.top-btn:hover{ background:var(--glass-strong); transform:translateY(-1px); }
+.top-btn .tb-ic{ font-size:15px; }
+
+/* 备份弹窗 */
+.backup-stat{ display:flex;gap:10px;flex-wrap:wrap;padding:12px;margin:12px 0;border-radius:12px; }
+.backup-stat div{ flex:1;min-width:62px;text-align:center; }
+.backup-stat b{ display:block;font-size:18px;color:var(--m-blue-d);line-height:1.3; }
+.backup-stat span{ font-size:11px;color:var(--text-soft); }
+.backup-actions{ display:flex;gap:10px;margin:6px 0 12px; }
+.backup-actions .btn{ flex:1;justify-content:center; }
+
+/* 窄屏：顶部「备份」按钮只显示图标，避免挤占空间 */
+@media(max-width:560px){
+  .top-btn .tb-tx{ display:none; }
+  .top-btn{ padding:8px 11px; }
+  .mini-countdown .mc-label{ display:none; }
+}
+
 .icon-btn{
   width:38px;height:38px;border-radius:12px;border:1px solid var(--border-soft);
   background:var(--glass-soft); cursor:pointer; color:var(--text); font-size:16px;
