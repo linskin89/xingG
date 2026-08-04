@@ -1438,17 +1438,31 @@ B. 选项二
     } catch (e) {
       return toast('打包失败：' + (e && e.message || e), 'warn');
     }
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
+    let blob, url;
+    try {
+      blob = new Blob([JSON.stringify(data, null, 2)], { type: 'text/plain;charset=utf-8' });
+      url = URL.createObjectURL(blob);
+    } catch (e) {
+      return toast('生成备份文件失败：' + (e && e.message || e), 'warn');
+    }
     const a = document.createElement('a');
     a.href = url;
     a.download = '星轨备份_' + S.todayStr() + '.txt';
+    a.style.display = 'none';
     document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    let ok = true;
+    try {
+      if (navigator.msSaveOrOpenBlob) { navigator.msSaveOrOpenBlob(blob, a.download); }
+      else { a.click(); }
+    } catch (e) { ok = false; }
+    // 关键：延迟清理，避免大文件下载被提前取消（尤其 Safari / iOS 在 await 后需锚点仍挂在 DOM）
+    setTimeout(() => {
+      try { a.remove(); } catch (e) {}
+      try { URL.revokeObjectURL(url); } catch (e) {}
+    }, 20000);
     $('#genericModal').classList.remove('show');
-    toast('已导出备份文件，请妥善保存 💾', 'ok');
+    if (ok) toast('已导出备份文件，请到下载目录查收并妥善保存 💾', 'ok');
+    else toast('浏览器拦截了下载，请允许本站点下载后重试', 'warn');
   }
 
   async function buildBackup() {
