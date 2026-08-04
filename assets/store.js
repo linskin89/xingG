@@ -417,6 +417,9 @@
     /* 片段阅读600题全量题目见 assets/data/pd600.js（window.PD600_BANK，由 JSON 自动生成；62 道未附答案作练习不判分） */
     const pd600 = (typeof window !== 'undefined' && window.PD600_BANK) ? window.PD600_BANK : [];
     mkPdf(pd600, 'pd600');
+    /* 片段阅读600题_上 全量题目见 assets/data/pd600u.js（window.PD600U_BANK，由 JSON 自动生成；66 道未附答案作练习不判分） */
+    const pd600u = (typeof window !== 'undefined' && window.PD600U_BANK) ? window.PD600U_BANK : [];
+    mkPdf(pd600u, 'pd600u');
     return banks;
   }
 
