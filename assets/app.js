@@ -143,6 +143,7 @@
     $('#petTalk').onclick = () => P.sayFloat(['weather', 'rest', 'remind'][Math.floor(Math.random() * 3)]);
     $('#miniPet').onclick = () => { openSide(); };
     $('#factoryReset').onclick = factoryReset;
+    $('#backupBtn').onclick = openBackupModal;
   }
   function openSide() { $('#sidebar').classList.add('open'); $('#sidebarScrim').classList.add('show'); $('#content').classList.add('sidebar-open'); }
   function closeSide() { $('#sidebar').classList.remove('open'); $('#sidebarScrim').classList.remove('show'); $('#content').classList.remove('sidebar-open'); }
@@ -1385,6 +1386,125 @@ B. 选项二
         setTimeout(() => location.reload(), 400);
       };
     });
+  }
+
+  /* ============ 数据备份（导出 / 导入） ============ */
+  function openBackupModal() {
+    const st = S.getState();
+    const fileN = (st.resources || []).length;
+    const fileSize = (st.resources || []).reduce((a, r) => a + (r.size || 0), 0);
+    const sizeStr = fileSize ? (fileSize / 1048576).toFixed(1) + ' MB' : '无';
+    openGeneric('💾 数据备份', `
+      <p class="muted small">将全部学习进度（学习计划、题库、错题集、资料库、倒计时、养成宠物与统计）导出为本地文件，防止清除缓存或换设备导致数据丢失。</p>
+      <div class="backup-stat glass-soft">
+        <div><b>${st.banks.length}</b><span>题库题数</span></div>
+        <div><b>${st.wrong.length}</b><span>错题集</span></div>
+        <div><b>${fileN}</b><span>资料文件（${sizeStr}）</span></div>
+        <div><b>✦ ${st.pet.meteor}</b><span>养成进度</span></div>
+      </div>
+      <div class="backup-actions">
+        <button class="btn primary" id="bkExport">⬇ 导出备份</button>
+        <button class="btn" id="bkImport">⬆ 导入备份</button>
+      </div>
+      <input type="file" id="bkFile" accept=".json,application/json" style="display:none">
+      <p class="hint">导入将<b>覆盖当前所有数据</b>，建议先导出一份再导入。备份文件仅保存在你的设备，不会上传到任何服务器。</p>
+    `, (b) => {
+      const fileInput = b.querySelector('#bkFile');
+      b.querySelector('#bkExport').onclick = () => doExportBackup();
+      b.querySelector('#bkImport').onclick = () => fileInput.click();
+      fileInput.onchange = (e) => {
+        const f = e.target.files && e.target.files[0];
+        if (!f) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          let obj;
+          try { obj = JSON.parse(reader.result); }
+          catch (err) { toast('文件不是有效的备份文件', 'warn'); return; }
+          if (!obj || obj.app !== '星轨·考公工作台' || !obj.state) {
+            toast('文件格式不正确，无法识别为星轨备份', 'warn'); return;
+          }
+          confirmModal('导入备份将覆盖当前所有数据，确定继续？', () => doRestoreBackup(obj));
+        };
+        reader.readAsText(f);
+      };
+    });
+  }
+
+  async function doExportBackup() {
+    toast('正在打包备份，请稍候…');
+    let data;
+    try {
+      data = await buildBackup();
+    } catch (e) {
+      return toast('打包失败：' + (e && e.message || e), 'warn');
+    }
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '星轨备份_' + S.todayStr() + '.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    $('#genericModal').classList.remove('show');
+    toast('已导出备份文件，请妥善保存 💾', 'ok');
+  }
+
+  async function buildBackup() {
+    const st = S.getState();
+    const entries = await S.exportFiles();
+    const files = [];
+    for (const { id, blob } of entries) {
+      try {
+        const b64 = await blobToB64(blob);
+        files.push({ id, name: blob.name || id, type: blob.type || 'application/octet-stream', data: b64 });
+      } catch (e) { /* 单个文件失败不影响其余 */ }
+    }
+    return {
+      app: '星轨·考公工作台',
+      version: 1,
+      schema: S.LS_KEY,
+      exportedAt: new Date().toISOString(),
+      state: st,
+      files
+    };
+  }
+
+  async function doRestoreBackup(obj) {
+    const files = obj.files || [];
+    let n = 0;
+    for (const f of files) {
+      try {
+        const blob = b64toBlob(f.data, f.type);
+        await S.putFile(f.id, blob);
+        n++;
+      } catch (e) { /* 跳过损坏的文件 */ }
+    }
+    try {
+      localStorage.setItem(S.LS_KEY, JSON.stringify(obj.state));
+    } catch (e) {
+      toast('写入数据失败：存储空间不足？', 'warn');
+      return;
+    }
+    toast(`已恢复数据（资料 ${n} 个），即将刷新…`, 'ok');
+    setTimeout(() => location.reload(), 600);
+  }
+
+  function blobToB64(blob) {
+    return new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(String(r.result).split(',')[1] || '');
+      r.onerror = rej;
+      r.readAsDataURL(blob);
+    });
+  }
+  function b64toBlob(b64, type) {
+    const bin = atob(b64);
+    const len = bin.length;
+    const arr = new Uint8Array(len);
+    for (let i = 0; i < len; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: type || 'application/octet-stream' });
   }
 
   /* ============ 启动 ============ */
